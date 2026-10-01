@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: search
+          POSTGRES_PASSWORD: search
+          POSTGRES_DB: search
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U search -d search"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.15.1
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://search:search@localhost:5432/search
+      ELASTICSEARCH_URL: http://localhost:9200
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Verify OpenAPI schema generates
+        run: python -m scripts.export_openapi
+
+      - name: Run functional tests
+        run: pytest

@@ -1,0 +1,368 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Document Search Service",
+    "description": "\nA simple full-text search service over document texts.\n\n* **Storage**: PostgreSQL holds the documents (`id`, `rubrics`, `text`, `created_date`).\n* **Index**: Elasticsearch holds `id` + `text` and powers the search.\n\nThe service can search documents by text (returning the 20 newest matches with\nall DB fields) and delete a document from both stores by `id`.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/documents/search": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Full-text search",
+        "description": "Searches document text in the Elasticsearch index and returns the first 20 documents (all DB fields) ordered by creation date.",
+        "operationId": "search_documents_documents_search_get",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Free-text query matched against document text",
+              "title": "Query"
+            },
+            "description": "Free-text query matched against document text"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "desc",
+                "asc"
+              ],
+              "type": "string",
+              "description": "Ordering by created_date: desc (newest first) or asc",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "Ordering by created_date: desc (newest first) or asc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Create a document",
+        "description": "Stores a document in the DB and indexes its text in Elasticsearch.",
+        "operationId": "create_document_documents_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/documents/{doc_id}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Get a document by id",
+        "operationId": "get_document_documents__doc_id__get",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Delete a document",
+        "description": "Removes a document from both the DB and the search index by id.",
+        "operationId": "delete_document_documents__doc_id__delete",
+        "parameters": [
+          {
+            "name": "doc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Doc Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DocumentCreate": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Full text of the document"
+          },
+          "rubrics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rubrics",
+            "description": "List of rubric codes the document belongs to"
+          },
+          "created_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created Date",
+            "description": "Document creation timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "created_date"
+        ],
+        "title": "DocumentCreate",
+        "description": "Payload for creating a document.",
+        "example": {
+          "created_date": "2019-07-25T12:42:13",
+          "rubrics": [
+            "VK-1603736028819866",
+            "VK-11879320040"
+          ],
+          "text": "Пример текста документа про Brawl Stars"
+        }
+      },
+      "DocumentOut": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Full text of the document"
+          },
+          "rubrics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rubrics",
+            "description": "List of rubric codes the document belongs to"
+          },
+          "created_date": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created Date",
+            "description": "Document creation timestamp"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Unique document identifier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "created_date",
+          "id"
+        ],
+        "title": "DocumentOut",
+        "description": "A document as returned by the API (all DB fields)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "SearchResponse": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query",
+            "description": "The query that was executed"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Number of documents returned"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentOut"
+            },
+            "type": "array",
+            "title": "Results",
+            "description": "Matching documents ordered by created_date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "query",
+          "count"
+        ],
+        "title": "SearchResponse",
+        "description": "Search results: up to ``search_result_size`` documents, newest first."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
